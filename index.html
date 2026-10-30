@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Familiare</title>
+    <!-- Configurazione per trasformarla in App Mobile/PC (PWA) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Agenda%20Familiare%22,%22short_name%22:%22Agenda%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f3f4f6%22,%22theme_color%22:%22%234f46e5%22}">
+    
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #1f2937;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+        
+        .container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        /* Stile Card e Form */
+        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        h3 { margin-bottom: 10px; color: var(--primary); border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+        label { font-size: 0.9rem; font-weight: bold; color: #4b5563; display: block; margin-top: 10px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; background: white; color: var(--text); }
+        button { background: var(--primary); color: white; border: none; padding: 12px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
+        button:hover { opacity: 0.9; }
+
+        /* Griglia Pasti */
+        .pasti-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .pasto-giorno { border-left: 4px solid var(--primary); padding-left: 10px; }
+
+        /* Lista Eventi Calendario */
+        .evento-item { display: flex; justify-content: space-between; align-items: center; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 5px; border-left: 4px solid #10b981; }
+        .btn-delete { background: #ef4444; width: auto; padding: 5px 10px; font-size: 0.8rem; }
+
+        /* Barra di Navigazione Inferiore stile App Mobile */
+        nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; border-top: 1px solid #e5e7eb; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
+        nav div { padding: 15px 10px; font-size: 0.9rem; font-weight: 500; color: #6b7280; cursor: pointer; flex: 1; text-align: center; }
+        nav div.active { color: var(--primary); border-top: 3px solid var(--primary); }
+    </style>
+</head>
+<body>
+
+    <header id="app-title">Agenda Familiare - Calendario</header>
+
+    <div class="container">
+        <!-- SEZIONE 1: CALENDARIO / IMPEGNI -->
+        <div id="sec-calendario" class="section active">
+            <div class="card">
+                <h3>Aggiungi Impegno</h3>
+                <input type="text" id="cal-titolo" placeholder="Cosa devi fare? (es. Visita Medica)">
+                <input type="date" id="cal-data">
+                <select id="cal-chi">
+                    <option value="Tutti">Per Chi? (Tutti)</option>
+                    <option value="Mamma">Mamma</option>
+                    <option value="Papà">Papà</option>
+                    <option value="Figlio 1">Figlio 1</option>
+                    <option value="Figlio 2">Figlio 2</option>
+                </select>
+                <button onclick="aggiungiEvento()">Salva Impegno</button>
+            </div>
+            <div class="card">
+                <h3>Impegni in Programma</h3>
+                <div id="lista-eventi"><!-- Dinamico --></div>
+            </div>
+        </div>
+
+        <!-- SEZIONE 2: PIANO PASTI MENSILE -->
+        <div id="sec-pasti" class="section">
+            <div class="card">
+                <h3>Menu del Mese</h3>
+                <p style="font-size: 0.85rem; color:#6b7280; margin-bottom:15px;">Seleziona un giorno per aggiornare cosa si mangia.</p>
+                <input type="date" id="pasto-data">
+                <input type="text" id="pasto-pranzo" placeholder="Pranzo (es. Pasta al pomodoro)">
+                <input type="text" id="pasto-cena" placeholder="Cena (es. Pollo e insalata)">
+                <button onclick="salvaPasto()">Aggiorna Giorno</button>
+            </div>
+            <div class="card">
+                <h3>I Pasti Salvati</h3>
+                <div id="lista-pasti" class="pasti-grid"><!-- Dinamico --></div>
+            </div>
+        </div>
+
+        <!-- SEZIONE 3: TAGLIE E PROFILI -->
+        <div id="sec-taglie" class="section">
+            <div class="card">
+                <h3>Seleziona Membro della Famiglia</h3>
+                <select id="taglie-chi" onchange="caricaTaglie()">
+                    <option value="Mamma">Mamma</option>
+                    <option value="Papà">Papà</option>
+                    <option value="Figlio 1">Figlio 1</option>
+                    <option value="Figlio 2">Figlio 2</option>
+                </select>
+                
+                <label>Taglia Vestiti (Sopra/Maglie):</label>
+                <input type="text" id="taglia-sopra" placeholder="es. M / 8 anni (128cm)">
+                
+                <label>Taglia Pantaloni (Sotto):</label>
+                <input type="text" id="taglia-sotto" placeholder="es. 42 / 32W">
+                
+                <label>Numero Scarpe:</label>
+                <input type="text" id="taglia-scarpe" placeholder="es. 39 / 42">
+                
+                <label>Note Extra / Idee Regalo:</label>
+                <textarea id="taglia-note" rows="3" placeholder="Allergie, marche preferite..."></textarea>
+                
+                <button onclick="salvaTaglie()">Salva Profilo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra di Navigazione dell'Applicazione -->
+    <nav>
+        <div id="nav-calendario" class="active" onclick="cambiaTab('calendario', 'Calendario')">📅 Calendario</div>
+        <div id="nav-pasti" onclick="cambiaTab('pasti', 'Piano Pasti')">🍲 Pasti</div>
+        <div id="nav-taglie" onclick="cambiaTab('taglie', 'Taglie Famiglia')">👕 Taglie</div>
+    </nav>
+    <script>
+        // Gestione della navigazione interna dell'app
+        function cambiaTab(tabId, titolo) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('nav div').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById('sec-' + tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+            document.getElementById('app-title').innerText = "Agenda Familiare - " + titolo;
+            
+            if(tabId === 'taglie') caricaTaglie();
+        }
+
+        // --- LOGICA SEZIONE 1: CALENDARIO ---
+        let eventi = JSON.parse(localStorage.getItem('agenda_eventi')) || [];
+
+        function mostraEventi() {
+            const lista = document.getElementById('lista-eventi');
+            lista.innerHTML = eventi.length === 0 ? '<p style="color:#9ca3af;">Nessun impegno salvato.</p>' : '';
+            
+            // Ordina per data cronologica
+            eventi.sort((a,b) => new Date(a.data) - new Date(b.data));
+            
+            eventi.forEach((ev, index) => {
+                const dataIta = new Date(ev.data).toLocaleDateString('it-IT');
+                lista.innerHTML += `
+                    <div class="evento-item">
+                        <div>
+                            <strong>${ev.titolo}</strong> <br>
+                            <small>📅 ${dataIta} | 👤 ${ev.chi}</small>
+                        </div>
+                        <button class="btn-delete" onclick="eliminaEvento(${index})">X</button>
+                    </div>`;
+            });
+        }
+
+        function aggiungiEvento() {
+            const titolo = document.getElementById('cal-titolo').value;
+            const data = document.getElementById('cal-data').value;
+            const chi = document.getElementById('cal-chi').value;
+            
+            if(!titolo || !data) return alert("Inserisci titolo e data!");
+            
+            eventi.push({titolo, data, chi});
+            localStorage.setItem('agenda_eventi', JSON.stringify(eventi));
+            
+            // Pulisci i campi e aggiorna la schermata
+            document.getElementById('cal-titolo').value = '';
+            document.getElementById('cal-data').value = '';
+            mostraEventi();
+            inviaNotificaLocale("Nuovo Impegno", `${titolo} aggiunto per ${chi}`);
+        }
+
+        function RimuoviEvento(index) {
+            eventi.splice(index, 1);
+            localStorage.setItem('agenda_eventi', JSON.stringify(eventi));
+            mostraEventi();
+        }
+        window.eliminaEvento = RimuoviEvento;
+
+        // --- LOGICA SEZIONE 2: PIANO PASTI ---
+        let pasti = JSON.parse(localStorage.getItem('agenda_pasti')) || {};
+
+        function mostraPasti() {
+            const lista = document.getElementById('lista-pasti');
+            lista.innerHTML = '';
+            const chiaviOrdinate = Object.keys(pasti).sort();
+            
+            if(chiaviOrdinate.length === 0) {
+                lista.innerHTML = '<p style="color:#9ca3af;">Nessun pasto registrato questo mese.</p>';
+                return;
+            }
+
+            chiaviOrdinate.forEach(dataStr => {
+                const dataIta = new Date(dataStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+                lista.innerHTML += `
+                    <div class="pasto-giorno card" style="margin-bottom:5px; padding: 10px;">
+                        <strong>${dataIta}</strong><br>
+                        ☀️ Pranzo: ${pasti[dataStr].pranzo || '-'}<br>
+                        🌙 Cena: ${pasti[dataStr].cena || '-'}
+                    </div>`;
+            });
+        }
+
+        function salvaPasto() {
+            const data = document.getElementById('pasto-data').value;
+            const pranzo = document.getElementById('pasto-pranzo').value;
+            const cena = document.getElementById('pasto-cena').value;
+
+            if(!data) return alert("Seleziona la data per i pasti!");
+
+            pasti[data] = { pranzo, cena };
+            localStorage.setItem('agenda_pasti', JSON.stringify(pasti));
+            
+            document.getElementById('pasto-pranzo').value = '';
+            document.getElementById('pasto-cena').value = '';
+            mostraPasti();
+            inviaNotificaLocale("Menu Aggiornato", "I pasti del giorno sono stati salvati.");
+        }
+
+        // --- LOGICA SEZIONE 3: TAGLIE ---
+        function salvaTaglie() {
+            const chi = document.getElementById('taglie-chi').value;
+            const taglie = JSON.parse(localStorage.getItem('agenda_taglie')) || {};
+            
+            taglie[chi] = {
+                sopra: document.getElementById('taglia-sopra').value,
+                sotto: document.getElementById('taglia-sotto').value,
+                scarpe: document.getElementById('taglia-scarpe').value,
+                note: document.getElementById('taglia-note').value
+            };
+            
+            localStorage.setItem('agenda_taglie', JSON.stringify(taglie));
+            alert("Profilo di " + chi + " salvato correttamente!");
+        }
+
+        function caricaTaglie() {
+            const chi = document.getElementById('taglie-chi').value;
+            const taglie = JSON.parse(localStorage.getItem('agenda_taglie')) || {};
+            const dati = taglie[chi] || { sopra: '', sotto: '', scarpe: '', note: '' };
+            
+            document.getElementById('taglia-sopra').value = dati.sopra;
+            document.getElementById('taglia-sotto').value = dati.sotto;
+            document.getElementById('taglia-scarpe').value = dati.scarpe;
+            document.getElementById('taglia-note').value = dati.note;
+        }
+
+        // --- SISTEMA NOTIFICHE DI SISTEMA ---
+        if (typeof Notification !== "undefined" && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+
+        function inviaNotificaLocale(titolo, testo) {
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                new Notification(titolo, { body: testo });
+            }
+        }
+
+        // Caricamento iniziale dei dati memorizzati
+        mostraEventi();
+        mostraPasti();
+    </script>
+</body>
+</html>
